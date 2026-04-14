@@ -1,0 +1,7 @@
+interface:
+  display_name: "PaperTranslating"
+  short_description: "Translate research papers into formatted Word files."
+  default_prompt: "Use $paper-translating to translate this research paper into a Word document while preserving figures, formulas, layout structure, and terminology consistency."
+
+policy:
+  allow_implicit_invocation: true
