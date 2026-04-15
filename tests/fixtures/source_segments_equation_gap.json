@@ -1,0 +1,12 @@
+{
+  "source_manifest": "fixture://equation-gap",
+  "segment_count": 6,
+  "segments": [
+    {"source_id": "S0001", "page_number": 10, "type": "body", "source_text": "The deposition function is given in Eq. (1)."},
+    {"source_id": "S0002", "page_number": 10, "type": "equation", "source_text": "VDR(I,DC)=... (1)"},
+    {"source_id": "S0003", "page_number": 11, "type": "equation", "source_text": "p_j^t(x,y,z)=... (2)"},
+    {"source_id": "S0004", "page_number": 11, "type": "equation", "source_text": "P_j^t(k_x,k_y,z_j^t)=... (3)"},
+    {"source_id": "S0005", "page_number": 11, "type": "equation", "source_text": "H(k_x,k_y,+/-z_j^t)=... (4)"},
+    {"source_id": "S0006", "page_number": 11, "type": "body", "source_text": "The hologram calculation continues through Eq. (5), Eq. (6), Eq. (7), Eq. (8), Eq. (9), and Eq. (10)."}
+  ]
+}

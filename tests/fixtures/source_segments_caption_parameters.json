@@ -1,0 +1,13 @@
+{
+  "source_manifest": "fixture://caption-parameters",
+  "segment_count": 1,
+  "segments": [
+    {
+      "source_id": "S0021",
+      "page_number": 3,
+      "type": "caption",
+      "label": "fig-1",
+      "source_text": "Fig. 1 | HDSP concept and printed objects. The parameters used are OD = 50 mm, P = 20 W, f0 = 2.28 MHz, and DC = 35%."
+    }
+  ]
+}
