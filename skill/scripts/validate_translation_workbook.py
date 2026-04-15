@@ -22,6 +22,7 @@ def main() -> int:
         "segment_count": len(workbook.get("segments", [])),
         "missing_translation_ids": [],
         "empty_translation_ids": [],
+        "omitted_segment_ids": [],
         "equation_segments_missing_omml": [],
         "duplicate_source_ids": [],
         "out_of_order": False,
@@ -44,6 +45,8 @@ def main() -> int:
 
         if not source_id:
             report["missing_translation_ids"].append(source_id)
+        if status == "omitted":
+            report["omitted_segment_ids"].append(source_id)
         if status != "omitted" and not translated:
             report["empty_translation_ids"].append(source_id)
         if segment.get("type") == "equation" and status != "omitted":
@@ -63,6 +66,7 @@ def main() -> int:
     blocking_issues = [
         report["missing_translation_ids"],
         report["empty_translation_ids"],
+        report["omitted_segment_ids"],
         report["equation_segments_missing_omml"],
         report["duplicate_source_ids"],
         report.get("source_ids_missing_from_workbook", []),

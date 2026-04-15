@@ -1,0 +1,25 @@
+{
+  "source_manifest": "fixture://source-id-coverage",
+  "segment_count": 3,
+  "segments": [
+    {
+      "source_id": "S0001",
+      "page_number": 1,
+      "type": "body",
+      "source_text": "The first paragraph introduces the process."
+    },
+    {
+      "source_id": "S0002",
+      "page_number": 1,
+      "type": "equation",
+      "source_text": "Correlation = ... (8)"
+    },
+    {
+      "source_id": "S0003",
+      "page_number": 1,
+      "type": "caption",
+      "label": "fig-1",
+      "source_text": "Fig. 1 | Full-width process characterization."
+    }
+  ]
+}

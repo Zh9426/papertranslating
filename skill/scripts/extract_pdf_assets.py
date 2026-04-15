@@ -96,28 +96,23 @@ def merge_caption_blocks(text_blocks: list[dict], page_height: float) -> list[di
     consumed: set[int] = set()
 
     for index, block in enumerate(text_blocks):
-        if index in consumed:
-            continue
-
         caption_meta = classify_caption(block["text"])
         if not caption_meta:
-            merged.append(block)
+            continue
+        if index in consumed:
             continue
 
         parts = [block]
         consumed.add(index)
         left, top, right, bottom = block["bbox"]
 
-        for next_index in range(index + 1, len(text_blocks)):
-            candidate = text_blocks[next_index]
-            if next_index in consumed:
+        for candidate_index, candidate in enumerate(text_blocks):
+            if candidate_index == index or candidate_index in consumed:
                 continue
             if not is_same_caption_row(block, candidate, page_height):
-                if candidate["bbox"][1] > bottom + max(10.0, page_height * 0.012):
-                    break
                 continue
             parts.append(candidate)
-            consumed.add(next_index)
+            consumed.add(candidate_index)
             left = min(left, candidate["bbox"][0])
             top = min(top, candidate["bbox"][1])
             right = max(right, candidate["bbox"][2])
@@ -126,6 +121,11 @@ def merge_caption_blocks(text_blocks: list[dict], page_height: float) -> list[di
         parts.sort(key=lambda item: item["bbox"][0])
         merged_text = " ".join(part["text"].replace("\n", " ").strip() for part in parts).strip()
         merged.append({"bbox": (left, top, right, bottom), "text": merged_text})
+
+    for index, block in enumerate(text_blocks):
+        if index in consumed:
+            continue
+        merged.append(block)
 
     merged.sort(key=lambda b: (b["bbox"][1], b["bbox"][0]))
     return merged
@@ -170,9 +170,19 @@ def find_crop_top(
     return min(crop_top, max_allowed)
 
 
-def expand_region_with_image_blocks(
+def collect_drawing_blocks(page) -> list[tuple[float, float, float, float]]:
+    drawing_blocks: list[tuple[float, float, float, float]] = []
+    for drawing in page.get_drawings():
+        rect = drawing.get("rect")
+        if not rect:
+            continue
+        drawing_blocks.append((rect.x0, rect.y0, rect.x1, rect.y1))
+    return drawing_blocks
+
+
+def expand_region_with_graphic_blocks(
     caption_block: dict,
-    image_blocks: list[tuple[float, float, float, float]],
+    graphic_blocks: list[tuple[float, float, float, float]],
     region: tuple[float, float],
     crop_top: float,
     page_width: float,
@@ -180,7 +190,7 @@ def expand_region_with_image_blocks(
 ) -> tuple[float, float]:
     caption_top = caption_block["bbox"][1]
     related = []
-    for bbox in image_blocks:
+    for bbox in graphic_blocks:
         if bbox[3] > caption_top:
             continue
         if bbox[1] < crop_top - max(20.0, page_height * 0.02):
@@ -245,6 +255,7 @@ def main() -> int:
 
         text_blocks: list[dict] = []
         image_blocks: list[tuple[float, float, float, float]] = []
+        drawing_blocks = collect_drawing_blocks(page)
         for block in page_dict.get("blocks", []):
             if block.get("type") == 1 and block.get("bbox"):
                 image_blocks.append(tuple(block["bbox"]))
@@ -267,8 +278,8 @@ def main() -> int:
                 continue
             region = region_for_caption(block, page_width, column_split)
             crop_top = find_crop_top(block, text_blocks, region, page_height, page_width)
-            region = expand_region_with_image_blocks(
-                block, image_blocks, region, crop_top, page_width, page_height
+            region = expand_region_with_graphic_blocks(
+                block, image_blocks + drawing_blocks, region, crop_top, page_width, page_height
             )
             crop_bottom = max(crop_top + 12, block["bbox"][1] - 4)
             clip_rect = fitz.Rect(region[0], crop_top, region[1], crop_bottom)

@@ -40,6 +40,7 @@ For PDF work:
 
 - Extract page text blocks and image assets before translation
 - Merge split caption fragments before deciding whether a figure is single-column or full-width
+- Expand figure crops with both raster image bounds and vector drawing bounds so wide composite figures are not clipped to one column
 - Prefer caption-anchored page-region crops over raw embedded-image export when reconstructing figures
 - Preserve figure and table numbering and captions
 - Keep formulas unchanged unless the formula contains natural-language labels that must be translated outside the equation body
@@ -114,7 +115,7 @@ Fill the workbook instead of writing free-form prose:
 - every `source_id` must remain present
 - every segment must receive `translated_text`
 - every equation segment must also receive machine-readable `equation_omml`
-- use `status = omitted` only with an explicit reason and only when the user approved omission
+- do not use `status = omitted` for deliverable builds; a complete translation must cover every `source_id`
 - keep translator notes separate from `translated_text`
 
 Run `scripts/validate_translation_workbook.py` before assembling the final document.
@@ -171,6 +172,7 @@ Preferred assembly order:
 Use `scripts/build_translation_docx.py` when you have structured JSON content to assemble. For formatting expectations, read [references/word-output.md](references/word-output.md).
 
 Do not ship a final paper translation by generic markdown-to-docx conversion alone. The final deliverable should be emitted through a typed block structure and the controlled DOCX builder so captions, references, metadata, equations, and body text can use distinct styles.
+The controlled DOCX builder should also preserve each `source_id` as a hidden bookmark so the final handoff can be checked for full source coverage.
 
 ### 9. Validation checklist
 
@@ -197,9 +199,10 @@ Before delivery, verify all of the following:
 - caption parameter symbols such as `P`, `f0`, `DC`, and `OD` are checked against the translation
 - the final document is checked for formula-style mismatches, plaintext equation paragraphs, and equation-image paragraphs
 - the final document is checked for missing internal reference targets on numeric citations
+- the final document is checked for missing `source_id` coverage against the prepared source segments
 
 Run `scripts/validate_translation_docx.py` before handoff whenever a final `.docx` was produced.
-When source segments exist, pass `--segments` to the DOCX validator so missing equation chains, caption parameters, and source-derived structural markers can block release.
+When source segments exist, pass `--segments` to the DOCX validator so missing equation chains, caption parameters, source-derived structural markers, and missing `source_id` coverage can block release.
 Run `scripts/validate_translation_fidelity.py` on the workbook before DOCX assembly, then on the final translation output before handoff.
 Run `scripts/validate_translation_workbook.py` before DOCX assembly.
 Treat any non-zero exit from the fidelity validator or DOCX validator as a release blocker.
@@ -214,7 +217,7 @@ Treat any non-zero exit from the fidelity validator or DOCX validator as a relea
 - `create_translation_workbook.py`: create a fill-in translation workbook that preserves every source segment
 - `validate_translation_workbook.py`: verify no source segments were dropped, left empty, duplicated, or reordered
 - `build_translation_docx.py`: assemble a translation deliverable from structured JSON and local images
-- `validate_translation_docx.py`: verify figure count, caption styles, equation continuity, caption parameter preservation, structural markers, and obvious encoding failures in the final DOCX
+- `validate_translation_docx.py`: verify figure count, caption styles, equation continuity, caption parameter preservation, structural markers, source-id coverage, and obvious encoding failures in the final DOCX
 - `validate_translation_fidelity.py`: flag explanatory drift, register drift, oversized source segments, sentence-count collapse, and paragraph-count mismatch
 
 ### references/

@@ -137,6 +137,15 @@ def extract_reference_label(text: str) -> str | None:
     return match.group(1) or match.group(2)
 
 
+def segment_bookmark_name(source_id: str) -> str:
+    normalized = re.sub(r"[^A-Za-z0-9_-]+", "-", (source_id or "").strip()).strip("-").lower()
+    if not normalized:
+        raise ValueError("source_id is required for segment bookmarks")
+    if normalized[0].isdigit():
+        normalized = f"s-{normalized}"
+    return f"seg-{normalized}"
+
+
 def collect_reference_targets(payload: dict) -> dict[str, str]:
     targets: dict[str, str] = {}
     blocks = payload.get("blocks")
@@ -250,10 +259,12 @@ def ensure_omml_namespaces(omml: str) -> str:
     return omml
 
 
-def add_equation_paragraph(document, omml: str, parse_xml):
+def add_equation_paragraph(document, omml: str, parse_xml, bookmark_name: str | None, bookmark_state, OxmlElement, qn):
     paragraph = document.add_paragraph(style="PaperEquation")
     equation_xml = ensure_omml_namespaces(omml.strip())
     paragraph._p.append(parse_xml(equation_xml))
+    if bookmark_name:
+        add_bookmark(paragraph, bookmark_name, bookmark_state, OxmlElement, qn)
     return paragraph
 
 
@@ -271,6 +282,9 @@ def add_block(
 ) -> None:
     block_type = block.get("type")
     text = block.get("text", "")
+    bookmark_name = None
+    if block.get("source_id"):
+        bookmark_name = segment_bookmark_name(str(block["source_id"]))
 
     if block_type == "title":
         document.add_paragraph(text, style="Title")
@@ -278,22 +292,39 @@ def add_block(
         level = max(1, min(int(block.get("level", 1)), 9))
         document.add_heading(text, level=level)
     elif block_type == "authors":
-        add_text_paragraph(document, text, "PaperAuthors", reference_targets, bookmark_state, OxmlElement, qn)
+        add_text_paragraph(
+            document, text, "PaperAuthors", reference_targets, bookmark_state, OxmlElement, qn, bookmark_name
+        )
     elif block_type in {"affiliation", "affiliations"}:
         add_text_paragraph(
-            document, text, "PaperAffiliations", reference_targets, bookmark_state, OxmlElement, qn
+            document,
+            text,
+            "PaperAffiliations",
+            reference_targets,
+            bookmark_state,
+            OxmlElement,
+            qn,
+            bookmark_name,
         )
     elif block_type in {"doi", "metadata"}:
-        add_text_paragraph(document, text, "PaperMetadata", reference_targets, bookmark_state, OxmlElement, qn)
+        add_text_paragraph(
+            document, text, "PaperMetadata", reference_targets, bookmark_state, OxmlElement, qn, bookmark_name
+        )
     elif block_type == "abstract":
-        add_text_paragraph(document, text, "PaperAbstract", reference_targets, bookmark_state, OxmlElement, qn)
+        add_text_paragraph(
+            document, text, "PaperAbstract", reference_targets, bookmark_state, OxmlElement, qn, bookmark_name
+        )
     elif block_type == "keyword":
-        add_text_paragraph(document, text, "PaperKeyword", reference_targets, bookmark_state, OxmlElement, qn)
+        add_text_paragraph(
+            document, text, "PaperKeyword", reference_targets, bookmark_state, OxmlElement, qn, bookmark_name
+        )
     elif block_type == "paragraph":
-        add_text_paragraph(document, text, "PaperBody", reference_targets, bookmark_state, OxmlElement, qn)
+        add_text_paragraph(
+            document, text, "PaperBody", reference_targets, bookmark_state, OxmlElement, qn, bookmark_name
+        )
     elif block_type == "reference":
         label = extract_reference_label(text)
-        bookmark_name = reference_targets.get(label) if label else None
+        reference_bookmark = reference_targets.get(label) if label else None
         add_text_paragraph(
             document,
             text,
@@ -302,20 +333,22 @@ def add_block(
             bookmark_state,
             OxmlElement,
             qn,
-            bookmark_name=bookmark_name,
+            bookmark_name=reference_bookmark or bookmark_name,
         )
     elif block_type == "caption":
-        add_text_paragraph(document, text, "Caption", reference_targets, bookmark_state, OxmlElement, qn)
+        add_text_paragraph(document, text, "Caption", reference_targets, bookmark_state, OxmlElement, qn, bookmark_name)
     elif block_type == "equation":
         equation_omml = (block.get("equation_omml") or block.get("omml") or "").strip()
         if not equation_omml:
             raise SystemExit("Equation blocks require machine-readable OMML. Equation images are not permitted.")
-        add_equation_paragraph(document, equation_omml, parse_xml)
+        add_equation_paragraph(document, equation_omml, parse_xml, bookmark_name, bookmark_state, OxmlElement, qn)
     elif block_type == "translator-note":
         paragraph = document.add_paragraph(style="TranslatorNote")
         run = paragraph.add_run("Translator note: ")
         run.bold = True
         paragraph.add_run(text)
+        if bookmark_name:
+            add_bookmark(paragraph, bookmark_name, bookmark_state, OxmlElement, qn)
     elif block_type == "image":
         if block.get("role") == "equation" or block.get("kind") == "equation":
             raise SystemExit("Equation images are not permitted. Supply editable OMML instead.")
@@ -328,6 +361,8 @@ def add_block(
         picture_paragraph = document.add_paragraph()
         picture_paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
         picture_paragraph.add_run().add_picture(str(image_path), width=inches(width_inches))
+        if bookmark_name:
+            add_bookmark(picture_paragraph, bookmark_name, bookmark_state, OxmlElement, qn)
         if block.get("caption"):
             add_text_paragraph(
                 document,
@@ -337,10 +372,13 @@ def add_block(
                 bookmark_state,
                 OxmlElement,
                 qn,
+                bookmark_name,
             )
     else:
         if text:
-            add_text_paragraph(document, text, "PaperBody", reference_targets, bookmark_state, OxmlElement, qn)
+            add_text_paragraph(
+                document, text, "PaperBody", reference_targets, bookmark_state, OxmlElement, qn, bookmark_name
+            )
 
 
 def validate_workbook_segments(segments: list[dict]) -> None:
@@ -348,6 +386,7 @@ def validate_workbook_segments(segments: list[dict]) -> None:
     missing = []
     duplicates = []
     empty = []
+    omitted = []
     equation_missing_omml = []
 
     for segment in segments:
@@ -361,6 +400,8 @@ def validate_workbook_segments(segments: list[dict]) -> None:
             duplicates.append(source_id)
         seen.add(source_id)
 
+        if status == "omitted":
+            omitted.append(source_id)
         if status != "omitted" and not translated_text and segment.get("type") != "equation":
             empty.append(source_id)
         if segment.get("type") == "equation" and status != "omitted":
@@ -372,6 +413,9 @@ def validate_workbook_segments(segments: list[dict]) -> None:
         errors.append(f"missing source_id entries: {len(missing)}")
     if duplicates:
         errors.append(f"duplicate source_id entries: {len(duplicates)}")
+    if omitted:
+        preview = ", ".join(omitted[:10])
+        errors.append(f"omitted segments are not permitted: {len(omitted)} ({preview})")
     if empty:
         preview = ", ".join(empty[:10])
         errors.append(f"empty translated_text entries: {len(empty)} ({preview})")
@@ -506,11 +550,15 @@ def main() -> int:
                     "type": "equation",
                     "text": translated_text,
                     "equation_omml": segment.get("equation_omml"),
+                    "source_id": segment.get("source_id"),
                 }
             elif segment_type == "reference":
-                block = {"type": "reference", "text": translated_text}
+                block = {"type": "reference", "text": translated_text, "source_id": segment.get("source_id")}
             else:
-                block = {"type": "paragraph", "text": translated_text}
+                block = {"type": "paragraph", "text": translated_text, "source_id": segment.get("source_id")}
+
+            if segment_type in {"caption", "heading", "metadata"}:
+                block["source_id"] = segment.get("source_id")
 
             add_block(
                 document,

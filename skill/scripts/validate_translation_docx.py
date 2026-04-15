@@ -28,6 +28,7 @@ DOC_CITATION_RE = re.compile(r"\[(\d+(?:\s*[,;]\s*\d+)*)\]")
 REFERENCE_BOOKMARK_RE = re.compile(r'w:bookmarkStart[^>]+w:name="(ref-\d+)"')
 INTERNAL_HYPERLINK_RE = re.compile(r'w:hyperlink[^>]+w:anchor="([^"]+)"')
 EQUATION_REF_RE = re.compile(r"\bEq\.?\s*\(?\d+\)?", re.IGNORECASE)
+SEGMENT_BOOKMARK_RE = re.compile(r'w:bookmarkStart[^>]+w:name="(seg-[^"]+)"')
 SOURCE_EQUATION_NUMBER_RE = re.compile(r"\((\d+)\)")
 FIGURE_REF_RE = re.compile(r"\b(?:Fig\.?|Figure)\s*\d+[a-z]?", re.IGNORECASE)
 SUPPLEMENTARY_REF_RE = re.compile(
@@ -63,6 +64,15 @@ def normalize_token(value: str) -> str:
 
 def normalize_markers(markers: set[str]) -> set[str]:
     return {normalize_token(marker) for marker in markers}
+
+
+def segment_bookmark_name(source_id: str) -> str:
+    normalized = re.sub(r"[^A-Za-z0-9_-]+", "-", (source_id or "").strip()).strip("-").lower()
+    if not normalized:
+        raise ValueError("source_id is required for segment bookmarks")
+    if normalized[0].isdigit():
+        normalized = f"s-{normalized}"
+    return f"seg-{normalized}"
 
 
 def paragraph_style_counter(document) -> Counter:
@@ -275,6 +285,12 @@ def compare_source_markers_to_docx(segments: list[dict], document) -> list[dict]
     return missing
 
 
+def compare_source_ids_to_docx(segments: list[dict], document_xml: str) -> list[str]:
+    expected = [segment_bookmark_name(str(segment.get("source_id", ""))) for segment in segments if segment.get("source_id")]
+    present = set(SEGMENT_BOOKMARK_RE.findall(document_xml))
+    return [segment.get("source_id") for segment in segments if segment.get("source_id") and segment_bookmark_name(str(segment["source_id"])) not in present]
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("docx", help="Translated DOCX to validate")
@@ -314,6 +330,7 @@ def main() -> int:
         "missing_equation_bodies": [],
         "missing_caption_parameters": [],
         "missing_structural_markers_from_docx": [],
+        "missing_source_ids_from_docx": [],
     }
 
     if args.manifest:
@@ -338,6 +355,7 @@ def main() -> int:
         report["missing_equation_numbers"] = [number for number in source_numbers if number not in final_numbers]
         report["missing_caption_parameters"] = compare_caption_parameters(segments, document)
         report["missing_structural_markers_from_docx"] = compare_source_markers_to_docx(segments, document)
+        report["missing_source_ids_from_docx"] = compare_source_ids_to_docx(segments, document_xml)
 
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(encoding="utf-8")
@@ -368,6 +386,8 @@ def main() -> int:
         blocking_issues.append("missing_caption_parameters")
     if report["missing_structural_markers_from_docx"]:
         blocking_issues.append("missing_structural_markers_from_docx")
+    if report["missing_source_ids_from_docx"]:
+        blocking_issues.append("missing_source_ids_from_docx")
 
     return 2 if blocking_issues else 0
 

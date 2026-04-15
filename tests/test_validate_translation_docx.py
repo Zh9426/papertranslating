@@ -5,6 +5,7 @@ import subprocess
 import sys
 import uuid
 from pathlib import Path
+from zipfile import ZipFile
 
 import pytest
 from docx import Document
@@ -14,6 +15,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = REPO_ROOT / "skill" / "scripts" / "validate_translation_docx.py"
 FIXTURES = Path(__file__).resolve().parent / "fixtures"
 LOCAL_TMP_ROOT = Path(__file__).resolve().parent / ".tmp"
+BUILD_SCRIPT = REPO_ROOT / "skill" / "scripts" / "build_translation_docx.py"
 
 
 def build_docx(path: Path, paragraphs: list[tuple[str, str]]) -> None:
@@ -26,6 +28,17 @@ def build_docx(path: Path, paragraphs: list[tuple[str, str]]) -> None:
 def run_validator(docx_path: Path, segments_path: Path) -> subprocess.CompletedProcess[str]:
     return subprocess.run(
         [sys.executable, str(SCRIPT), str(docx_path), "--segments", str(segments_path)],
+        cwd=REPO_ROOT,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        check=False,
+    )
+
+
+def run_builder(payload_path: Path, output_path: Path) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(
+        [sys.executable, str(BUILD_SCRIPT), str(payload_path), str(output_path)],
         cwd=REPO_ROOT,
         capture_output=True,
         text=True,
@@ -110,3 +123,69 @@ def test_fails_when_final_docx_drops_source_structural_markers(local_tmp_dir: Pa
             "missing_values": ["eq.(10)", "eq.(5)", "eq.(6)", "eq.(7)", "eq.(8)", "eq.(9)"],
         }
     ]
+
+
+def test_fails_when_final_docx_lacks_source_id_coverage(local_tmp_dir: Path) -> None:
+    docx_path = local_tmp_dir / "source-id-gap.docx"
+    build_docx(
+        docx_path,
+        [
+            ("Normal", "Only one visible paragraph made it into the final document."),
+        ],
+    )
+
+    result = run_validator(docx_path, FIXTURES / "source_segments_source_id_coverage.json")
+
+    assert result.returncode == 2
+    report = json.loads(result.stdout)
+    assert report["missing_source_ids_from_docx"] == ["S0001", "S0002", "S0003"]
+
+
+def test_builder_embeds_source_id_bookmarks_into_final_docx(local_tmp_dir: Path) -> None:
+    payload_path = local_tmp_dir / "payload.json"
+    docx_path = local_tmp_dir / "built.docx"
+    payload_path.write_text(
+        json.dumps(
+            {
+                "segments": [
+                    {
+                        "source_id": "S0001",
+                        "type": "body",
+                        "translated_text": "第一段落。",
+                        "equation_omml": None,
+                        "status": "translated",
+                    },
+                    {
+                        "source_id": "S0002",
+                        "type": "equation",
+                        "translated_text": "公式（8）",
+                        "equation_omml": (
+                            '<m:oMathPara xmlns:m="http://schemas.openxmlformats.org/officeDocument/2006/math" '
+                            'xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">'
+                            "<m:oMath><m:r><m:t>x=1</m:t></m:r></m:oMath></m:oMathPara>"
+                        ),
+                        "status": "translated",
+                    },
+                    {
+                        "source_id": "S0003",
+                        "type": "caption",
+                        "translated_text": "Fig. 1. 完整图注。",
+                        "equation_omml": None,
+                        "status": "translated",
+                    },
+                ]
+            },
+            ensure_ascii=False,
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+
+    build_result = run_builder(payload_path, docx_path)
+
+    assert build_result.returncode == 0, build_result.stderr or build_result.stdout
+    with ZipFile(docx_path) as archive:
+        document_xml = archive.read("word/document.xml").decode("utf-8")
+    assert 'w:name="seg-s0001"' in document_xml
+    assert 'w:name="seg-s0002"' in document_xml
+    assert 'w:name="seg-s0003"' in document_xml
