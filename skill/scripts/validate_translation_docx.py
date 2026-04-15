@@ -28,6 +28,12 @@ DOC_CITATION_RE = re.compile(r"\[(\d+(?:\s*[,;]\s*\d+)*)\]")
 REFERENCE_BOOKMARK_RE = re.compile(r'w:bookmarkStart[^>]+w:name="(ref-\d+)"')
 INTERNAL_HYPERLINK_RE = re.compile(r'w:hyperlink[^>]+w:anchor="([^"]+)"')
 EQUATION_REF_RE = re.compile(r"\bEq\.?\s*\(?\d+\)?", re.IGNORECASE)
+SOURCE_EQUATION_NUMBER_RE = re.compile(r"\((\d+)\)")
+CAPTION_PREFIX_RE = re.compile(r"^(?:fig\.?|figure|图)\s*\.?\s*(\d+[a-z]?)", re.IGNORECASE)
+PARAMETER_SYMBOL_RE = re.compile(
+    r"\b(P|OD|DC|SNR|PSNR|NMSE|Correlation|VDR|f\s*0)\s*=",
+    re.IGNORECASE,
+)
 
 
 def load_docx():
@@ -36,9 +42,18 @@ def load_docx():
     return Document
 
 
+def load_segments(path: Path) -> list[dict]:
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    return payload.get("segments", [])
+
+
 def count_source_figures(manifest_path: Path) -> int:
     payload = json.loads(manifest_path.read_text(encoding="utf-8"))
     return sum(len(page.get("figures", [])) for page in payload.get("pages", []))
+
+
+def normalize_token(value: str) -> str:
+    return re.sub(r"\s+", "", value).lower()
 
 
 def paragraph_style_counter(document) -> Counter:
@@ -156,10 +171,78 @@ def equation_reference_count(document) -> int:
     return count
 
 
+def collect_source_equation_numbers(segments: list[dict]) -> list[int]:
+    numbers: set[int] = set()
+    for segment in segments:
+        text = segment.get("source_text", "") or ""
+        if segment.get("type") == "equation":
+            for match in SOURCE_EQUATION_NUMBER_RE.findall(text):
+                numbers.add(int(match))
+        for match in EQUATION_REF_RE.findall(text):
+            digits = re.findall(r"\d+", match)
+            numbers.update(int(item) for item in digits)
+    return sorted(numbers)
+
+
+def collect_docx_equation_numbers(document) -> list[int]:
+    numbers: set[int] = set()
+    for para in document.paragraphs:
+        for match in EQUATION_REF_RE.findall(para.text or ""):
+            digits = re.findall(r"\d+", match)
+            numbers.update(int(item) for item in digits)
+    return sorted(numbers)
+
+
+def caption_identifier(text: str) -> str | None:
+    match = CAPTION_PREFIX_RE.match((text or "").strip())
+    if not match:
+        return None
+    return f"fig-{normalize_token(match.group(1))}"
+
+
+def extract_parameter_symbols(text: str) -> set[str]:
+    return {normalize_token(match.group(1)) for match in PARAMETER_SYMBOL_RE.finditer(text or "")}
+
+
+def compare_caption_parameters(source_segments: list[dict], document) -> list[dict]:
+    source_expectations: dict[str, set[str]] = {}
+    for segment in source_segments:
+        if segment.get("type") != "caption":
+            continue
+        identifier = segment.get("label") or caption_identifier(segment.get("source_text", ""))
+        if not identifier:
+            continue
+        symbols = extract_parameter_symbols(segment.get("source_text", ""))
+        if symbols:
+            source_expectations[normalize_token(identifier)] = symbols
+
+    final_captions: dict[str, set[str]] = {}
+    for para in document.paragraphs:
+        if para.style.name != "Caption":
+            continue
+        identifier = caption_identifier(para.text or "")
+        if not identifier:
+            continue
+        final_captions[normalize_token(identifier)] = extract_parameter_symbols(para.text or "")
+
+    missing: list[dict] = []
+    for identifier, expected in sorted(source_expectations.items()):
+        absent = sorted(expected - final_captions.get(identifier, set()))
+        if absent:
+            missing.append(
+                {
+                    "caption_identifier": identifier,
+                    "missing_parameter_symbols": absent,
+                }
+            )
+    return missing
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("docx", help="Translated DOCX to validate")
     parser.add_argument("--manifest", help="Optional source manifest.json from extract_pdf_assets.py")
+    parser.add_argument("--segments", help="Optional source segments JSON from prepare_translation_segments.py")
     args = parser.parse_args()
 
     Document = load_docx()
@@ -190,6 +273,10 @@ def main() -> int:
         "citation_hyperlink_count": len(hyperlink_anchors),
         "missing_reference_targets": missing_reference_targets,
         "mojibake_paragraphs": find_mojibake_paragraphs(document),
+        "missing_equation_numbers": [],
+        "missing_equation_bodies": [],
+        "missing_caption_parameters": [],
+        "missing_structural_markers_from_docx": [],
     }
 
     if args.manifest:
@@ -203,6 +290,16 @@ def main() -> int:
         )
     else:
         report["suspected_equation_images"] = False
+
+    if args.segments:
+        segments_path = Path(args.segments).expanduser().resolve()
+        segments = load_segments(segments_path)
+        source_numbers = collect_source_equation_numbers(segments)
+        final_numbers = collect_docx_equation_numbers(document)
+        report["source_equation_numbers"] = source_numbers
+        report["docx_equation_numbers"] = final_numbers
+        report["missing_equation_numbers"] = [number for number in source_numbers if number not in final_numbers]
+        report["missing_caption_parameters"] = compare_caption_parameters(segments, document)
 
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(encoding="utf-8")
@@ -227,6 +324,10 @@ def main() -> int:
         blocking_issues.append("mojibake_paragraphs")
     if report.get("missing_figure_count", 0) > 0:
         blocking_issues.append("missing_figure_count")
+    if report["missing_equation_numbers"]:
+        blocking_issues.append("missing_equation_numbers")
+    if report["missing_caption_parameters"]:
+        blocking_issues.append("missing_caption_parameters")
 
     return 2 if blocking_issues else 0
 
