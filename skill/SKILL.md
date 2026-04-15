@@ -199,9 +199,10 @@ Before delivery, verify all of the following:
 - the final document is checked for missing internal reference targets on numeric citations
 
 Run `scripts/validate_translation_docx.py` before handoff whenever a final `.docx` was produced.
+When source segments exist, pass `--segments` to the DOCX validator so missing equation chains, caption parameters, and source-derived structural markers can block release.
 Run `scripts/validate_translation_fidelity.py` on the workbook before DOCX assembly, then on the final translation output before handoff.
 Run `scripts/validate_translation_workbook.py` before DOCX assembly.
-Treat any non-zero exit from the fidelity validator as a release blocker.
+Treat any non-zero exit from the fidelity validator or DOCX validator as a release blocker.
 
 ## Resources
 
@@ -213,7 +214,7 @@ Treat any non-zero exit from the fidelity validator as a release blocker.
 - `create_translation_workbook.py`: create a fill-in translation workbook that preserves every source segment
 - `validate_translation_workbook.py`: verify no source segments were dropped, left empty, duplicated, or reordered
 - `build_translation_docx.py`: assemble a translation deliverable from structured JSON and local images
-- `validate_translation_docx.py`: verify figure count, caption styles, and obvious encoding failures in the final DOCX
+- `validate_translation_docx.py`: verify figure count, caption styles, equation continuity, caption parameter preservation, structural markers, and obvious encoding failures in the final DOCX
 - `validate_translation_fidelity.py`: flag explanatory drift, register drift, oversized source segments, sentence-count collapse, and paragraph-count mismatch
 
 ### references/

@@ -54,7 +54,7 @@ C:\Users\Zh89\.codex\skills\paper-translating
 - `skill/scripts/validate_translation_docx.py`
 - `tools/check_update_notes.py`
 
-Use these before considering any output deliverable complete.
+Treat a translation as complete only when workbook, fidelity, and final DOCX validation all pass. When prepared source segments exist, pass them into the final DOCX validator as well so missing equation chains, caption parameters, and structural markers can block delivery.
 
 ## Usage Example
 
