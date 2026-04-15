@@ -83,6 +83,7 @@ Translate faithfully and conservatively.
 - Preserve equation numbering, coefficient values, and displayed math blocks; do not jump from one equation number to another by omission
 - Final equations must be editable Word equations backed by machine-readable math; equation images are not acceptable
 - Preserve abstract detail, application-scope discussion, and figure-caption parameters; these are not optional compression targets
+- Preserve threshold values, fitted coefficients, percentages, and other source-side numeric constants; these are mandatory reproducibility content
 - Preserve a restrained academic register across the whole translation; avoid colloquial, tutorial, promotional, or oral-explanation phrasing
 - Keep abbreviations consistent
 - Do not rewrite claims, tone down uncertainty, strengthen conclusions, or turn the paper into commentary
@@ -105,6 +106,7 @@ Use the generated `source_id` values as the working translation skeleton:
 - stop and regenerate or inspect segmentation if `validate_translation_fidelity.py` reports oversized source segments
 
 This step exists to stop paragraph drift, accidental omission, and ad hoc restructuring.
+It also provides the unit of checking for long-segment compression and missing critical constants.
 
 ### 6. Use a translation workbook, not free-form drafting
 
@@ -195,6 +197,8 @@ Before delivery, verify all of the following:
 - equation segments are checked for missing machine-readable `equation_omml`
 - prepared source segments are checked for oversized multi-paragraph body chunks before translation starts
 - the workbook is checked for suspicious sentence-count collapse that may indicate omission within a segment
+- the workbook is checked for severe length collapse where a long source paragraph was reduced to a short summary sentence
+- the workbook is checked for missing critical tokens such as percentages, thresholds, unit-bearing values, and fitted coefficient labels
 - source figure, equation, and supplementary references are checked against the translation for structural marker loss
 - caption parameter symbols such as `P`, `f0`, `DC`, and `OD` are checked against the translation
 - the final document is checked for formula-style mismatches, plaintext equation paragraphs, and equation-image paragraphs
@@ -219,6 +223,7 @@ Treat any non-zero exit from the fidelity validator or DOCX validator as a relea
 - `build_translation_docx.py`: assemble a translation deliverable from structured JSON and local images
 - `validate_translation_docx.py`: verify figure count, caption styles, equation continuity, caption parameter preservation, structural markers, source-id coverage, and obvious encoding failures in the final DOCX
 - `validate_translation_fidelity.py`: flag explanatory drift, register drift, oversized source segments, sentence-count collapse, and paragraph-count mismatch
+- `validate_translation_fidelity.py`: also flags severe summary-style compression and missing critical numeric or coefficient tokens inside translated segments
 
 ### references/
 

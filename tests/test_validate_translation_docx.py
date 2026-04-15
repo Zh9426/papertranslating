@@ -189,3 +189,28 @@ def test_builder_embeds_source_id_bookmarks_into_final_docx(local_tmp_dir: Path)
     assert 'w:name="seg-s0001"' in document_xml
     assert 'w:name="seg-s0002"' in document_xml
     assert 'w:name="seg-s0003"' in document_xml
+
+
+def test_fails_when_formula_text_is_left_in_body_paragraphs(local_tmp_dir: Path) -> None:
+    docx_path = local_tmp_dir / "plaintext-formula.docx"
+    build_docx(
+        docx_path,
+        [
+            ("Normal", "Correlation = ΣΣ(Ri,j - R̄)(Ai,j - Ā) / sqrt(...)"),
+        ],
+    )
+
+    result = subprocess.run(
+        [sys.executable, str(SCRIPT), str(docx_path)],
+        cwd=REPO_ROOT,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        check=False,
+    )
+
+    assert result.returncode == 2
+    report = json.loads(result.stdout)
+    assert report["formula_style_mismatches"] == [
+        "Correlation = ΣΣ(Ri,j - R̄)(Ai,j - Ā) / sqrt(...)"
+    ]

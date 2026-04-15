@@ -1,0 +1,12 @@
+{
+  "segments": [
+    {
+      "source_id": "S0102",
+      "page_number": 8,
+      "type": "body",
+      "source_text": "The duty cycle was reduced from 100% to 50%, and then refined in 1% steps to identify 14% as the threshold without bubble generation. The acoustic pressure should remain below 2 MPa to avoid streaming. The fitted coefficients were a0 = 1.24 × 10^3, a10 = -2.88 × 10^3, and a01 = 2.18 × 10^2.",
+      "translated_text": "较低占空比有助于提高透明度，并且需要控制声压。拟合常数见原文。",
+      "status": "translated"
+    }
+  ]
+}

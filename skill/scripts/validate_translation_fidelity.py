@@ -46,6 +46,14 @@ PARAMETER_SYMBOL_RE = re.compile(
     r"\b(P|OD|DC|SNR|PSNR|NMSE|Correlation|VDR|f\s*0)\s*=",
     re.IGNORECASE,
 )
+PERCENT_TOKEN_RE = re.compile(r"\b\d+(?:\.\d+)?%")
+POWER_TOKEN_RE = re.compile(r"\b10\^\d+\b", re.IGNORECASE)
+UNIT_TOKEN_RE = re.compile(r"\b\d+(?:\.\d+)?\s*(MPa|MHz|mm|W)\b", re.IGNORECASE)
+COEFFICIENT_TOKEN_RE = re.compile(r"\b([A-Za-z][A-Za-z0-9_]*)\s*=\s*[-+0-9]")
+COEFFICIENT_VALUE_RE = re.compile(
+    r"\b[A-Za-z][A-Za-z0-9_]*\s*=\s*[-+]?\s*(\d+(?:\.\d+)?)\s*(?:[×x]\s*)?(10\^\d+)?",
+    re.IGNORECASE,
+)
 
 
 def load_docx_paragraphs(path: Path) -> list[str]:
@@ -125,13 +133,39 @@ def extract_structural_markers(text: str) -> dict[str, set[str]]:
     }
 
 
+def normalize_text_for_token_match(text: str) -> str:
+    return re.sub(r"\s+", "", (text or "")).lower()
+
+
+def extract_critical_tokens(text: str) -> list[str]:
+    tokens: set[str] = set()
+    for token in PERCENT_TOKEN_RE.findall(text or ""):
+        tokens.add(token.lower())
+    for match in UNIT_TOKEN_RE.finditer(text or ""):
+        tokens.add(match.group(1).lower())
+        number = re.search(r"\d+(?:\.\d+)?", match.group(0))
+        if number:
+            tokens.add(number.group(0).lower())
+    for token in COEFFICIENT_TOKEN_RE.findall(text or ""):
+        normalized = token.lower()
+        if any(char.isdigit() for char in normalized):
+            tokens.add(normalized)
+    for value, power in COEFFICIENT_VALUE_RE.findall(text or ""):
+        tokens.add(value.lower())
+        if power:
+            tokens.add(power.lower())
+    return sorted(tokens)
+
+
 def analyze_segments(payload_segments: list[dict]) -> dict:
     source_body_segments = [seg for seg in payload_segments if seg.get("type") == "body"]
     oversized_source_segments = []
     suspicious_sentence_drop = []
+    suspicious_length_drop = []
     translated_body_segments = []
     missing_structural_markers = []
     missing_caption_parameters = []
+    missing_critical_tokens = []
 
     for segment in payload_segments:
         source_text = (segment.get("source_text") or "").strip()
@@ -175,6 +209,19 @@ def analyze_segments(payload_segments: list[dict]) -> dict:
                         }
                     )
 
+            required_tokens = extract_critical_tokens(source_text)
+            if required_tokens:
+                normalized_target = normalize_text_for_token_match(translated_text)
+                missing_tokens = [token for token in required_tokens if token not in normalized_target]
+                if missing_tokens:
+                    missing_critical_tokens.append(
+                        {
+                            "source_id": segment.get("source_id"),
+                            "page_number": segment.get("page_number"),
+                            "missing_tokens": missing_tokens,
+                        }
+                    )
+
         if segment_type != "body":
             continue
 
@@ -195,6 +242,7 @@ def analyze_segments(payload_segments: list[dict]) -> dict:
         if translated_text:
             translated_body_segments.append(translated_text)
             target_sentences = count_target_sentences(translated_text)
+            target_character_count = len(re.sub(r"\s+", "", translated_text))
             if source_sentences >= 4 and target_sentences <= max(1, source_sentences // 2):
                 suspicious_sentence_drop.append(
                     {
@@ -206,14 +254,25 @@ def analyze_segments(payload_segments: list[dict]) -> dict:
                         "translated_text_preview": translated_text[:180],
                     }
                 )
+            if source_words >= 45 and target_character_count < max(18, int(source_words * 0.35)):
+                suspicious_length_drop.append(
+                    {
+                        "source_id": segment.get("source_id"),
+                        "page_number": segment.get("page_number"),
+                        "source_word_count": source_words,
+                        "target_character_count": target_character_count,
+                    }
+                )
 
     return {
         "source_body_segment_count": len(source_body_segments),
         "body_like_paragraph_count": len(translated_body_segments),
         "oversized_source_segments": oversized_source_segments,
         "suspicious_sentence_drop": suspicious_sentence_drop,
+        "suspicious_length_drop": suspicious_length_drop,
         "missing_structural_markers": missing_structural_markers,
         "missing_caption_parameters": missing_caption_parameters,
+        "missing_critical_tokens": missing_critical_tokens,
         "suspicious_voice_hits": detect_suspicious_voice(translated_body_segments),
         "register_drift_hits": detect_register_drift(translated_body_segments),
     }
@@ -268,10 +327,14 @@ def main() -> int:
         blocking_issues.append("oversized_source_segments")
     if report.get("suspicious_sentence_drop"):
         blocking_issues.append("suspicious_sentence_drop")
+    if report.get("suspicious_length_drop"):
+        blocking_issues.append("suspicious_length_drop")
     if report.get("missing_structural_markers"):
         blocking_issues.append("missing_structural_markers")
     if report.get("missing_caption_parameters"):
         blocking_issues.append("missing_caption_parameters")
+    if report.get("missing_critical_tokens"):
+        blocking_issues.append("missing_critical_tokens")
     if isinstance(report.get("body_paragraph_delta"), int) and report["body_paragraph_delta"] < -3:
         blocking_issues.append("body_paragraph_delta")
 
