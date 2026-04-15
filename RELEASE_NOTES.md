@@ -1,21 +1,21 @@
-# Release Notes
+# 发布说明
 
-## Latest Update
+## 最新更新
 
-### Summary
+### 摘要
 
-Initial public release of the `paper-translating` skill repository, with enforced update-note synchronization for future skill changes.
-Hardened final DOCX validation so source-derived equation gaps, caption parameter loss, and structural marker loss now fail before delivery.
+发布 `paper-translating` 技能的独立仓库版本，并为后续技能更新增加更新说明同步约束。
+强化最终 DOCX 校验能力，使源文推导出的公式缺失、图注参数丢失和结构标记缺失都能在交付前失败。
 
-### Description
+### 说明
 
-This release packages the local Codex skill into a standalone repository with installation guidance, validation scripts, strict translation-fidelity rules, editable Word equation requirements, numeric-reference cross-link support, and a repository-level guard that requires matching changelog and release-note updates whenever the packaged skill changes.
-The validation pipeline now also compares translated DOCX output against prepared source segments, adding regression-tested checks for missing numbered equations, stripped caption parameters, and dropped structural markers that a formatting-only final pass would previously miss.
+本次发布将本地 Codex 技能整理为独立仓库，补齐了安装说明、校验脚本、严格的翻译保真规则、可编辑 Word 公式要求以及数字参考文献交叉引用支持，并在仓库层面加入了更新日志与发布说明同步更新的约束。
+当前的校验链也会将译文 DOCX 与准备好的源文分段进行对照，增加了经过回归测试覆盖的检查项，用于识别此前仅靠格式校验无法发现的编号公式缺失、图注参数删减和结构标记丢失问题。
 
-## Update Rule
+## 更新规则
 
-For every future update:
+今后的每一次更新都应满足：
 
-1. update the Summary section with a short one-paragraph change overview
-2. update the Description section with a fuller explanation of what changed and why
-3. commit those note changes in the same commit as the skill update
+1. 在“摘要”部分补充一段简要更新概览
+2. 在“说明”部分补充一段更完整的改动背景与原因
+3. 将这些说明与技能改动放在同一次提交中

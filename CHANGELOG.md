@@ -1,15 +1,15 @@
-# Changelog
+# 更新日志
 
-All notable updates to `paper-translating` should be recorded here.
+`paper-translating` 的重要更新都应记录在这里。
 
-## Unreleased
+## 未发布
 
-### Summary
+### 摘要
 
-- Packaged the skill for public distribution and added repository-level enforcement for update summaries and descriptions.
-- Hardened final DOCX validation so source-derived equation gaps, caption parameter loss, and structural marker loss now fail before delivery.
+- 将该技能整理为可独立发布的仓库，并加入仓库级的更新摘要与更新说明同步约束。
+- 强化了最终 DOCX 校验能力，使源文推导出的公式缺失、图注参数丢失和结构标记缺失都能在交付前被拦截。
 
-### Description
+### 说明
 
-- Added the standalone public repository layout for `paper-translating`, including installation and usage guidance, and introduced an explicit update-notes gate so future `skill/` changes must be accompanied by synchronized `CHANGELOG.md` and `RELEASE_NOTES.md` updates.
-- Added regression tests and stricter final document checks that compare translated DOCX output against prepared source segments, catching missing numbered equations, stripped caption parameters, and dropped source structural markers that previously escaped the final validation stage.
+- 新增了 `paper-translating` 的独立仓库结构，补齐了安装与使用说明，并引入显式的更新说明校验规则，要求后续所有 `skill/` 变更都必须同步更新 `CHANGELOG.md` 和 `RELEASE_NOTES.md`。
+- 新增回归测试，并强化了最终文档校验逻辑。现在会将译文 DOCX 与准备好的源文分段进行对照，识别此前会漏过的编号公式缺失、图注参数删减以及源文结构标记丢失等问题。

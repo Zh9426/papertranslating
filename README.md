@@ -1,82 +1,81 @@
-# Paper Translating Skill
+# 论文翻译技能
 
-`paper-translating` is a Codex skill for translating academic papers into structured Word deliverables while preserving layout-relevant structure, figures, formulas, references, and terminology consistency.
+`paper-translating` 是一个面向 Codex 的论文翻译技能，用于将学术论文翻译为结构化的 Word 交付件，同时尽量保留原文的版面相关结构、图表、公式、参考文献以及术语一致性。
 
-## What It Covers
+## 能力范围
 
-- PDF, HTML, DOCX, or pasted-paper translation workflows
-- domain-aware terminology selection
-- structure-preserving source segmentation
-- workbook-driven translation to reduce omissions and paragraph drift
-- editable Word equation requirements
-- internal cross-references for numbered bibliography citations
-- final DOCX validation for figures, formulas, style separation, and fidelity
+- 支持 PDF、HTML、DOCX 和粘贴文本等论文翻译流程
+- 支持按领域选择术语和术语库
+- 支持保留原始结构的源文分段
+- 使用工作簿驱动翻译，减少漏译和段落漂移
+- 要求公式以可编辑的 Word 公式形式交付
+- 支持数字参考文献的文内交叉引用
+- 提供面向图表、公式、样式分离和保真度的最终 DOCX 校验
 
-## Repository Layout
+## 仓库结构
 
-- `skill/SKILL.md`: main skill instructions
-- `skill/references/`: translation discipline, termbase guidance, Word output contract
-- `skill/scripts/`: extraction, segmentation, workbook, DOCX build, and validation scripts
+- `skill/SKILL.md`：主技能说明
+- `skill/references/`：翻译规范、术语库选择规则和 Word 输出约束
+- `skill/scripts/`：提取、分段、工作簿、DOCX 组装与校验脚本
 
-## Install
+## 安装方式
 
-Copy the `skill/` directory into your Codex skills directory and keep the folder name as `paper-translating`.
+将 `skill/` 目录复制到你的 Codex 技能目录中，并保持目录名为 `paper-translating`。
 
-Typical personal installation path on this machine:
+当前机器上的典型安装路径：
 
 ```text
 C:\Users\Zh89\.codex\skills\paper-translating
 ```
 
-## Core Workflow
+## 核心流程
 
-1. Extract source structure from the paper.
-2. Prepare ordered source segments.
-3. Create a translation workbook.
-4. Fill the workbook segment by segment.
-5. Supply editable OMML for equation segments.
-6. Validate workbook completeness and fidelity.
-7. Build the final `.docx`.
-8. Validate the final document before delivery.
+1. 提取论文源文结构。
+2. 生成有序的源文分段。
+3. 创建翻译工作簿。
+4. 按分段逐条填写译文。
+5. 为公式分段提供可编辑的 OMML。
+6. 校验工作簿完整性与保真度。
+7. 生成最终 `.docx`。
+8. 在交付前校验最终文档。
 
-## Hard Requirements
+## 硬性要求
 
-- Translation, not explanation
-- Formal scientific Chinese register
-- No silent omission of sections, formulas, captions, or application discussion
-- Equations must be editable Word equations, not screenshots
-- Numbered bibliography citations should resolve to internal reference targets
+- 这是翻译，不是解释或改写
+- 译文默认应保持正式、克制的科研中文风格
+- 不得静默删除章节、公式、图注或应用讨论内容
+- 公式必须是可编辑的 Word 公式，不能用截图代替
+- 数字型参考文献引用应尽可能解析为文内可跳转目标
 
-## Validation Scripts
+## 校验脚本
 
 - `skill/scripts/validate_translation_workbook.py`
 - `skill/scripts/validate_translation_fidelity.py`
 - `skill/scripts/validate_translation_docx.py`
 - `tools/check_update_notes.py`
 
-Treat a translation as complete only when workbook, fidelity, and final DOCX validation all pass. When prepared source segments exist, pass them into the final DOCX validator as well so missing equation chains, caption parameters, and structural markers can block delivery.
+只有当工作簿校验、保真校验和最终 DOCX 校验全部通过时，才应视为翻译完成。如果已经生成了源文分段，还应将其传入最终 DOCX 校验器，以便阻止公式链缺失、图注参数丢失和结构标记丢失的结果被误交付。
 
-## Usage Example
+## 使用示例
 
 ```text
-Use $paper-translating to translate this paper into a Chinese Word document.
-Preserve section structure, paragraph boundaries, figures, formulas, tables,
-and numbered citations. Use formal scientific Chinese. Do not omit content.
-Formulas must stay editable, and bibliography references must remain cross-linked.
+使用 $paper-translating 将这篇论文翻译成中文 Word 文档。
+保留章节结构、段落边界、图、公式、表格和数字引用标记。
+使用正式科研中文，不要删减内容。
+公式必须保持可编辑，参考文献引用也要尽量保持可交叉跳转。
 ```
 
-## Update Policy
+## 更新规则
 
-Every skill update must include:
+每次技能更新都必须同时包含：
 
-1. code or documentation changes
-2. a short update summary
-3. a fuller update description
+1. 代码或文档改动
+2. 一段简短更新摘要
+3. 一段更完整的更新说明
 
-The repository tracks those in:
+仓库使用以下文件跟踪这些内容：
 
 - `CHANGELOG.md`
 - `RELEASE_NOTES.md`
 
-Do not publish updates without synchronizing those two files. CI also enforces
-this rule whenever files under `skill/` change.
+如果 `skill/` 下有改动，就不能跳过这两个文件的同步更新；CI 也会对这项规则进行检查。
