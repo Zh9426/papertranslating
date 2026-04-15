@@ -1,0 +1,29 @@
+name: Require Update Notes
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+jobs:
+  enforce-update-notes:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Enforce synchronized update notes on push
+        if: github.event_name == 'push'
+        run: python tools/check_update_notes.py ${{ github.event.before }} ${{ github.sha }}
+
+      - name: Enforce synchronized update notes on pull request
+        if: github.event_name == 'pull_request'
+        run: python tools/check_update_notes.py ${{ github.event.pull_request.base.sha }} ${{ github.event.pull_request.head.sha }}

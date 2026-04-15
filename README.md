@@ -52,8 +52,18 @@ C:\Users\Zh89\.codex\skills\paper-translating
 - `skill/scripts/validate_translation_workbook.py`
 - `skill/scripts/validate_translation_fidelity.py`
 - `skill/scripts/validate_translation_docx.py`
+- `tools/check_update_notes.py`
 
 Use these before considering any output deliverable complete.
+
+## Usage Example
+
+```text
+Use $paper-translating to translate this paper into a Chinese Word document.
+Preserve section structure, paragraph boundaries, figures, formulas, tables,
+and numbered citations. Use formal scientific Chinese. Do not omit content.
+Formulas must stay editable, and bibliography references must remain cross-linked.
+```
 
 ## Update Policy
 
@@ -68,4 +78,5 @@ The repository tracks those in:
 - `CHANGELOG.md`
 - `RELEASE_NOTES.md`
 
-Do not publish updates without synchronizing those two files.
+Do not publish updates without synchronizing those two files. CI also enforces
+this rule whenever files under `skill/` change.

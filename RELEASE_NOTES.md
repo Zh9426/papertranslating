@@ -4,11 +4,11 @@
 
 ### Summary
 
-Initial public release of the `paper-translating` skill repository.
+Initial public release of the `paper-translating` skill repository, with enforced update-note synchronization for future skill changes.
 
 ### Description
 
-This release packages the local Codex skill into a standalone repository with installation guidance, validation scripts, strict translation-fidelity rules, editable Word equation requirements, and numeric-reference cross-link support.
+This release packages the local Codex skill into a standalone repository with installation guidance, validation scripts, strict translation-fidelity rules, editable Word equation requirements, numeric-reference cross-link support, and a repository-level guard that requires matching changelog and release-note updates whenever the packaged skill changes.
 
 ## Update Rule
 

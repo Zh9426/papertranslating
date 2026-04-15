@@ -6,8 +6,8 @@ All notable updates to `paper-translating` should be recorded here.
 
 ### Summary
 
-- Initial public packaging of the skill with validation-focused translation workflow.
+- Packaged the skill for public distribution and added repository-level enforcement for update summaries and descriptions.
 
 ### Description
 
-- Added the packaged `paper-translating` skill, including structure-preserving extraction, workbook-driven translation, fidelity validation, editable-equation requirements, and internal bibliography cross-reference support.
+- Added the standalone public repository layout for `paper-translating`, including installation and usage guidance, and introduced an explicit update-notes gate so future `skill/` changes must be accompanied by synchronized `CHANGELOG.md` and `RELEASE_NOTES.md` updates.
