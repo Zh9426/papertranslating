@@ -88,3 +88,25 @@ def test_fails_when_translated_captions_drop_source_parameters(local_tmp_dir: Pa
             "missing_parameter_symbols": ["dc", "f0", "od", "p"],
         }
     ]
+
+
+def test_fails_when_final_docx_drops_source_structural_markers(local_tmp_dir: Path) -> None:
+    docx_path = local_tmp_dir / "marker-loss.docx"
+    build_docx(
+        docx_path,
+        [
+            ("Normal", "The deposition function is given in Eq. (1)."),
+            ("Normal", "See Fig. 1 for the setup."),
+        ],
+    )
+
+    result = run_validator(docx_path, FIXTURES / "source_segments_equation_gap.json")
+
+    assert result.returncode == 2
+    report = json.loads(result.stdout)
+    assert report["missing_structural_markers_from_docx"] == [
+        {
+            "marker_type": "equation_refs",
+            "missing_values": ["eq.(10)", "eq.(5)", "eq.(6)", "eq.(7)", "eq.(8)", "eq.(9)"],
+        }
+    ]

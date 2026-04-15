@@ -29,6 +29,11 @@ REFERENCE_BOOKMARK_RE = re.compile(r'w:bookmarkStart[^>]+w:name="(ref-\d+)"')
 INTERNAL_HYPERLINK_RE = re.compile(r'w:hyperlink[^>]+w:anchor="([^"]+)"')
 EQUATION_REF_RE = re.compile(r"\bEq\.?\s*\(?\d+\)?", re.IGNORECASE)
 SOURCE_EQUATION_NUMBER_RE = re.compile(r"\((\d+)\)")
+FIGURE_REF_RE = re.compile(r"\b(?:Fig\.?|Figure)\s*\d+[a-z]?", re.IGNORECASE)
+SUPPLEMENTARY_REF_RE = re.compile(
+    r"\bSupplementary\s+(?:Fig(?:ure)?\.?|Table|Movie)\s*\d+[a-z]?",
+    re.IGNORECASE,
+)
 CAPTION_PREFIX_RE = re.compile(r"^(?:fig\.?|figure|图)\s*\.?\s*(\d+[a-z]?)", re.IGNORECASE)
 PARAMETER_SYMBOL_RE = re.compile(
     r"\b(P|OD|DC|SNR|PSNR|NMSE|Correlation|VDR|f\s*0)\s*=",
@@ -54,6 +59,10 @@ def count_source_figures(manifest_path: Path) -> int:
 
 def normalize_token(value: str) -> str:
     return re.sub(r"\s+", "", value).lower()
+
+
+def normalize_markers(markers: set[str]) -> set[str]:
+    return {normalize_token(marker) for marker in markers}
 
 
 def paragraph_style_counter(document) -> Counter:
@@ -238,6 +247,34 @@ def compare_caption_parameters(source_segments: list[dict], document) -> list[di
     return missing
 
 
+def extract_docx_structural_markers(document) -> dict[str, set[str]]:
+    joined = "\n".join((para.text or "").strip() for para in document.paragraphs if (para.text or "").strip())
+    return {
+        "figure_refs": normalize_markers(set(FIGURE_REF_RE.findall(joined))),
+        "equation_refs": normalize_markers(set(EQUATION_REF_RE.findall(joined))),
+        "supplementary_refs": normalize_markers(set(SUPPLEMENTARY_REF_RE.findall(joined))),
+    }
+
+
+def compare_source_markers_to_docx(segments: list[dict], document) -> list[dict]:
+    source_text = "\n".join(
+        (segment.get("source_text") or "").strip() for segment in segments if segment.get("source_text")
+    )
+    source_markers = {
+        "figure_refs": normalize_markers(set(FIGURE_REF_RE.findall(source_text))),
+        "equation_refs": normalize_markers(set(EQUATION_REF_RE.findall(source_text))),
+        "supplementary_refs": normalize_markers(set(SUPPLEMENTARY_REF_RE.findall(source_text))),
+    }
+    docx_markers = extract_docx_structural_markers(document)
+
+    missing: list[dict] = []
+    for key in ("figure_refs", "equation_refs", "supplementary_refs"):
+        absent = sorted(source_markers[key] - docx_markers[key])
+        if absent:
+            missing.append({"marker_type": key, "missing_values": absent})
+    return missing
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("docx", help="Translated DOCX to validate")
@@ -300,6 +337,7 @@ def main() -> int:
         report["docx_equation_numbers"] = final_numbers
         report["missing_equation_numbers"] = [number for number in source_numbers if number not in final_numbers]
         report["missing_caption_parameters"] = compare_caption_parameters(segments, document)
+        report["missing_structural_markers_from_docx"] = compare_source_markers_to_docx(segments, document)
 
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(encoding="utf-8")
@@ -328,6 +366,8 @@ def main() -> int:
         blocking_issues.append("missing_equation_numbers")
     if report["missing_caption_parameters"]:
         blocking_issues.append("missing_caption_parameters")
+    if report["missing_structural_markers_from_docx"]:
+        blocking_issues.append("missing_structural_markers_from_docx")
 
     return 2 if blocking_issues else 0
 
